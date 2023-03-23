@@ -1,0 +1,219 @@
+---
+title: "HW2"
+author: "Yu Peng"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **1.Dataset choice**
+
+I choose "Chemical Manufacturing Process Data" data set.
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(AppliedPredictiveModeling)
+library(ggplot2)
+library(dplyr)
+data(ChemicalManufacturingProcess)
+```
+
+## a.Data set fields description
+Since the data set includes 58 variables, I first detect the null values in the data set and select 10 complete variables, including one outcome variable, 4 raw material variables and 5 process variables.(In order to include some categorical variables, I also selected some variables with some null values, such as ManufacturingProcess12 and ManufacturingProcess23)
+
+```{r,echo=FALSE}
+colSums(is.na(ChemicalManufacturingProcess))
+```
+```{r,echo=FALSE}
+new_ChemicalManufacturingProcess <- select(ChemicalManufacturingProcess, Yield, BiologicalMaterial02, BiologicalMaterial04, BiologicalMaterial06, BiologicalMaterial07,ManufacturingProcess03,ManufacturingProcess12,ManufacturingProcess24,ManufacturingProcess38,ManufacturingProcess41)
+```
+## **2.Identify a variable that I will attempt to predict using regression**
+
+-   **Yield** (continuous) = Yield of compounds obtained by chemical manufacturing, taking the values:
+```{r,echo=FALSE}
+summary(new_ChemicalManufacturingProcess$Yield)
+```
+## histogram plot 
+```{r,echo=FALSE}
+hist(new_ChemicalManufacturingProcess$Yield)
+```
+
+## **3.Appropriately preprocess the data**  
+## a.Pairs plot  
+```{r,echo=FALSE}
+library(ggplot2)
+pairs(new_ChemicalManufacturingProcess)
+```
+
+## b.Identify three predictor variables  
+```{r,echo=FALSE}
+corr_matrix <- cor(new_ChemicalManufacturingProcess)
+sorted_corr_matrix <- sort(corr_matrix[, "Yield"], decreasing = TRUE)
+top_three_variables <- names(sorted_corr_matrix)[2:6]
+top_three_variables
+```
+
+At the same time, we see that there is a strong correlation between BiologicalMaterial02, BiologicalMaterial04 and BiologicalMaterial06 in the figure, so we choose one of them, BiologicalMaterial02, and then choose ManufacturingProcess38 and BiologicalMaterial07 as predictor variables, because they all show a strong correlation with output.
+```{r,echo=FALSE}
+Preprocess_data <- select(new_ChemicalManufacturingProcess,BiologicalMaterial02,BiologicalMaterial07,ManufacturingProcess38,Yield)
+```
+## c.Remove NA values  
+```{r,echo=FALSE}
+Preprocess_data <- na.omit(Preprocess_data)
+```
+## d.Preprocess the predictors
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(caret)
+predictors_only<- select(Preprocess_data, -Yield)
+df_predictors_only <- data.frame(predictors_only)
+Preprocessing_fit <- preProcess(
+df_predictors_only,
+method = c("BoxCox", "center", "scale"))
+Preprocessing_fit
+transformed_predictors <- predict(
+Preprocessing_fit, df_predictors_only)
+Processed_data<-cbind(transformed_predictors,Preprocess_data$Yield)
+colnames(Processed_data)[4] <- "Yield"
+```
+## **4.Use 10 fold cross validation to fit a model from each of the following categories**    
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(earth)
+library(Formula)
+library(plotmo)
+library(plotrix)
+library(TeachingDemos)
+set.seed(123)
+ctrl = trainControl(
+  method="cv", number = 10
+)
+```
+## a.Linear models  
+### - Linear regression  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+lm <- train( Yield ~ ., data = Processed_data ,
+                method="lm", 
+                trControl=ctrl
+          )
+lm
+```
+### - Lasso  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+lassoGrid <- expand.grid(lambda = c(0), 
+                        fraction = seq(.1, 1, length = 15))
+Lasso <- train(Yield ~ ., data = Processed_data ,
+                      method = "enet",
+                      tuneGrid = lassoGrid,
+                      trControl = ctrl
+                    )
+Lasso
+```
+### - Ridge regression  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+ridgeGrid <- expand.grid(lambda = seq(0, .1, length = 10))
+Ridge <- train(Yield ~ ., data = Processed_data ,
+                     method = "ridge",
+                     tuneGrid = ridgeGrid,
+                     trControl = ctrl,
+                )
+Ridge
+```
+## b.Non-linear models  
+### - Support Vector Machines (SVM)  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+ svmLinearTuned <- train(
+    Yield ~ ., data = Processed_data ,
+    method = "svmLinear",
+    tuneLength = 8,
+    epsilon = 0.01,
+    trControl = ctrl
+  )
+  svmLinearTuned
+```
+### - Neural Nets  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+ nnetGrid <- expand.grid(
+    decay = c(5.0),
+    size = c(3)
+  )  
+  nnetTune <- train(Yield ~ ., data = Processed_data ,
+                     method = "nnet",
+                     tuneGrid = nnetGrid,
+                     trControl = ctrl,
+                     preProc = c("center", "scale"),
+                     linout = TRUE, 
+                     trace = FALSE
+  )
+   nnetTune
+```
+### - Multivariate Adaptive Regression Splines (MARS)  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+marsGrid <- expand.grid(.degree = 1:2, .nprune = c(20, 30, 40, 50))
+    marsFit <- train(Yield ~ ., data = Processed_data ,
+                       method = "earth",
+                       tuneGrid = marsGrid,
+                       trControl = ctrl
+    )
+    marsFit
+```
+### - K-nearest Neighbors (KNN)
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+knn_fit <- train(Yield ~ ., data = Processed_data ,
+                 method = "knn",
+                 trControl = ctrl)
+knn_fit
+```
+## c.Trees
+### - Regression tree
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+rpart_fit <- train(Yield ~ ., data = Processed_data ,
+                   method = "rpart",
+                   trControl = ctrl)
+rpart_fit
+```
+### - Random forests
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+mtryGrid <- data.frame(
+  mtry = floor(seq(1, ncol(Processed_data), 
+                      length = 2))
+  )
+  rfTune <- train(Yield ~ ., data = Processed_data ,
+                   method = "rf",
+                   tuneGrid = mtryGrid,
+                   ntree = 50,
+                   importance = TRUE,
+                   trControl = ctrl)
+    rfTune
+```
+##  **5.Compare each of the models in terms of their complexity and cross-validated RMSE**  
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+model_list <- list(min(lm$results$RMSE),
+                   min(Lasso$results$RMSE),
+                   min(Ridge$results$RMSE),
+                  min(svmLinearTuned$results$RMSE),
+                  min(nnetTune$results$RMSE),
+                  min(marsFit$results$RMSE),
+                  min(knn_fit$results$RMSE),
+                  min(rpart_fit$results$RMSE),
+                  min(rfTune$results$RMSE))
+df2 <- data.frame(matrix(unlist(model_list), byrow = T, nrow = 1), stringsAsFactors = F)
+names(df2) <- c("Linear regression","Lasso","Ridge","SVM","Neural Nets","MARS","KNN","Regression tree","Random forests")
+library(tidyr)
+df_long <- df2 %>% 
+  pivot_longer(cols = c("Linear regression","Lasso","Ridge","SVM","Neural Nets","MARS","KNN","Regression tree","Random forests"), names_to = "Modle_Type", values_to = "RMSE")
+ggplot(df_long , aes(x = Modle_Type, y = RMSE)) + 
+  geom_point()+
+  ylim(1,2)
+```  
+According to this plot, the Random forests modle has the minimize RMSE with 1.47,and the KNN modle has the maximize RMSE with 1.73. And at the same time, according to the fitting principles of each model, the Trees type modles are the most complicated, and the Linear models are relatively less complicated.
+
+## **6. Which model would I recommend using and why?**  
+According to the fit of the selected data set and each model, the RMSE of random forests is the smallest. Although its complexity is relatively high, for this data set, the complexity of the model will not significantly increase its operation. time, so the random forest model is recommended.
