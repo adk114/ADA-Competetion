@@ -10,7 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r import data, echo=FALSE, warning=FALSE}
-
-head(competition.data) #Adi
-
+library(knitr)
+cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+competition_data <- read.csv(paste(cwd, "competition-data.csv", sep = "/"))
+head(competition_data)
 ```
