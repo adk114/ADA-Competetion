@@ -9,4 +9,8 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{}
+```{r import data, echo=FALSE, warning=FALSE}
+
+head(competition.data) #Adi
+
+```
