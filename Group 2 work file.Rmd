@@ -150,7 +150,7 @@ mtryGrid <- data.frame(
     rfTune
 ```
 ```{r}
-predicted_outcome <- predict(rfTune,competition_test_data )
+predicted_outcome <- predict(rfTune,transformed_test_predictors )
 head(predicted_outcome)
 View(predicted_outcome)
 write.csv(predicted_outcome, file = "predicted_outcome.csv")
@@ -199,5 +199,18 @@ cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
 competition_test_data <- read.csv(paste(cwd, "competition-test-x-values.csv", sep = "/"))
 head(competition_test_data)
 ```
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(caret)
+test_predictors_only<- dplyr::select(competition_test_data,X2, X3, X4, X5, X9, X11, X15, X18, X19, X20, X21)
+#dplyr:::select.data.frame(competition_test_data, outcome)
+df_test_predictors_only <- data.frame(test_predictors_only)
+Preprocessing_test_fit <- preProcess(
+df_test_predictors_only,
+method = c("BoxCox", "center", "scale"))
+Preprocessing_test_fit
+transformed_test_predictors <- predict(
+Preprocessing_test_fit, df_test_predictors_only)
+#Processed_test_data<-cbind(transformed_test_predictors,competition_test_data$outcome)
+#colnames(Processed_test_data)[12] <- "outcome"
 ```
 
