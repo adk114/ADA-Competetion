@@ -149,3 +149,55 @@ mtryGrid <- data.frame(
                    trControl = ctrl)
     rfTune
 ```
+```{r}
+predicted_outcome <- predict(rfTune,competition_test_data )
+head(predicted_outcome)
+View(predicted_outcome)
+write.csv(predicted_outcome, file = "predicted_outcome.csv")
+```
+
+
+## KNN
+```{r non-linear - K-nearest neighnours, echo = FALSE, warning = FALSE, message = FALSE}
+
+ctrl = trainControl(
+  method="cv", number = 10,
+  selectionFunction = "oneSE" 
+)
+library(tidyverse)
+
+
+knnFit <- train(outcome ~ ., data = Processed_data ,
+                method="knn", 
+                trControl=ctrl,
+                tuneLength=15
+          )
+
+knnFit
+```
+
+```{r}
+library(kernlab)
+library(caret)
+
+detach("package:kernlab", unload=TRUE)
+
+  svmLinearTuned <- train(outcome ~ ., data = Processed_data ,
+    method = "svmLinear",
+    preProc = c("center", "scale"),
+    tuneLength = 8,
+    epsilon = 0.01,
+    trControl = ctrl
+  )
+  
+svmLinearTuned  
+```
+
+```{r}
+library(knitr)
+cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+competition_test_data <- read.csv(paste(cwd, "competition-test-x-values.csv", sep = "/"))
+head(competition_test_data)
+```
+```
+
