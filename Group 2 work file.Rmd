@@ -17,7 +17,7 @@ head(competition_data)
 ```
 
 ```{r na value}
-na_values <- sum(is.na(competition.data))
+na_values <- sum(is.na(competition_data))
 na_values
 # Here the data has no N.A. value
 ```
@@ -36,24 +36,24 @@ library(ggplot2)
 library(dplyr)
 library(tidyverse)
 
-pairs(competition.data %>% dplyr::select(X1:X10, outcome))
+pairs(competition_data %>% dplyr::select(X1:X10, outcome))
 
-pairs(competition.data %>% dplyr::select(X11:X21, outcome))
+pairs(competition_data %>% dplyr::select(X11:X21, outcome))
 
-pairs(competition.data%>% dplyr::select(outcome, X2, X3, X4, X5, X9, X11, X15, X18, X19, X20, X21))
+pairs(competition_data%>% dplyr::select(outcome, X2, X3, X4, X5, X9, X11, X15, X18, X19, X20, X21))
 ```
 
 ```{r,echo=FALSE,warning=FALSE,message=FALSE}
 library(caret)
-predictors_only<- select(Preprocess_data, -Yield)
-df_predictors_only <- data.frame(predictors_only)
+dplyr:::select.data.frame(competition_data, outcome)
+df_predictors_only <- data.frame(competition_data)
 Preprocessing_fit <- preProcess(
 df_predictors_only,
 method = c("BoxCox", "center", "scale"))
 Preprocessing_fit
 transformed_predictors <- predict(
 Preprocessing_fit, df_predictors_only)
-Processed_data<-cbind(transformed_predictors,Preprocess_data$Yield)
+Processed_data<-cbind(transformed_predictors,Preprocess_data$outcome)
 colnames(Processed_data)[4] <- "Yield"
 ```
 
@@ -67,4 +67,77 @@ set.seed(123)
 ctrl = trainControl(
   method="cv", number = 10
 )
+```
+
+#Linear Regression Model.
+```{r}
+set.seed(123)
+
+lmTune <- train(outcome ~ ., data = Processed_data ,
+                   method = "lm",
+                   trControl = ctrl)
+lmTune$results$RMSE
+
+tooHigh <- findCorrelation(cor(train_x), .9)
+trainXfiltered <- train_x[, -tooHigh]
+
+lmTuneFiltered <- train(x = trainXfiltered, y = train_y,
+                  method = "lm",
+                  trControl = ctrl)
+lmTuneFiltered$results$RMSE
+```
+
+# Ridge Regression Model.
+```{r}
+set.seed(100)
+ridgeGrid <- expand.grid(lambda = seq(0, .1, length = 10))
+ridgeTune <- train(outcome ~ ., data = Processed_data ,
+                     method = "ridge",
+                     tuneGrid = ridgeGrid,
+                     trControl = ctrl,
+                     preProc = c("center", "scale")
+                )
+```
+
+```{r}
+plot(ridgeTune)
+ridgeTune$bestTune
+min(ridgeTune$results$RMSE)
+```
+
+```{r}
+set.seed(100)
+  lassoGrid <- expand.grid(lambda = c(0), 
+                        fraction = seq(.1, 1, length = 15))
+  lassoTune <- train(outcome ~ ., data = Processed_data ,
+                      method = "enet",
+                      tuneGrid = lassoGrid,
+                      trControl = ctrl,
+                      preProc = c("center", "scale")
+                    )
+```
+
+```{r}
+plot(lassoTune)
+lassoTune$bestTune
+min(lassoTune$results$RMSE)
+```
+
+#LASSO.
+```{r}
+set.seed(100)
+  lassoGrid <- expand.grid(lambda = c(0), 
+                        fraction = seq(.1, 1, length = 15))
+  lassoTune <- train(outcome ~ ., data = Processed_data ,
+                      method = "enet",
+                      tuneGrid = lassoGrid,
+                      trControl = ctrl,
+                      preProc = c("center", "scale")
+                    )
+```
+
+```{r}
+plot(lassoTune)
+lassoTune$bestTune
+min(lassoTune$results$RMSE)
 ```
